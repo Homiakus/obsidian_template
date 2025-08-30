@@ -2,8 +2,11 @@ import { App, Plugin, TFile, Notice, debounce } from "obsidian";
 import { PluginSettings, DEFAULT_SETTINGS, migrateSettings } from "./settings";
 import { MaskBuilderSettingTab } from "./ui/settings-tab";
 import { MaskBuilderModal } from "./ui/mask-builder-modal";
+import { DebugPanel } from "./ui/debug-panel";
 import { MaskParser, ParsedMask } from "./utils/mask-parser";
 import { FileManager } from "./utils/file-manager";
+import { performanceMonitor } from "./utils/performance-monitor";
+import { errorHandler, ErrorCategory, ErrorSeverity } from "./utils/error-handler";
 
 export default class MaskBuilderPlugin extends Plugin {
   settings: PluginSettings = DEFAULT_SETTINGS;
@@ -11,40 +14,62 @@ export default class MaskBuilderPlugin extends Plugin {
   private debouncedProcessFile: (file: TFile) => void;
 
   async onload() {
+    performanceMonitor.startTimer('pluginLoad');
     console.log("Loading Mask Builder plugin");
 
-    // Загружаем настройки с миграцией
-    await this.loadSettings();
+    try {
+      // Загружаем настройки с миграцией
+      await this.loadSettings();
 
-    // Инициализируем менеджер файлов
-    this.fileManager = new FileManager(this.app);
+      // Инициализируем менеджер файлов
+      this.fileManager = new FileManager(this.app);
 
-    // Создаем debounced функцию для обработки файлов
-    this.debouncedProcessFile = debounce(
-      (file: TFile) => this.processFile(file),
-      this.settings.debounceDelay,
-      true
-    );
+      // Создаем debounced функцию для обработки файлов
+      this.debouncedProcessFile = debounce(
+        (file: TFile) => this.processFile(file),
+        this.settings.debounceDelay,
+        true
+      );
 
-    // Регистрируем команды
-    this.registerCommands();
+      // Регистрируем команды
+      this.registerCommands();
 
-    // Регистрируем вкладку настроек
-    this.addSettingTab(new MaskBuilderSettingTab(this.app, this));
+      // Регистрируем вкладку настроек
+      this.addSettingTab(new MaskBuilderSettingTab(this.app, this));
 
-    // Регистрируем обработчики событий
-    this.registerEventHandlers();
+      // Регистрируем обработчики событий
+      this.registerEventHandlers();
 
-    console.log("Mask Builder plugin loaded successfully");
+      performanceMonitor.endTimer('pluginLoad');
+      console.log("Mask Builder plugin loaded successfully");
+    } catch (error) {
+      errorHandler.handleCriticalError(
+        error instanceof Error ? error : new Error(String(error)),
+        { operation: 'pluginLoad' }
+      );
+      throw error;
+    }
   }
 
   onunload() {
     console.log("Unloading Mask Builder plugin");
     
-    // Очищаем кэш
-    this.fileManager.clearCache();
-    
-    console.log("Mask Builder plugin unloaded");
+    try {
+      // Очищаем кэш
+      this.fileManager.clearCache();
+      
+      // Логируем финальный отчет о производительности
+      performanceMonitor.logPerformanceReport();
+      
+      console.log("Mask Builder plugin unloaded");
+    } catch (error) {
+      errorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        ErrorCategory.UNKNOWN,
+        ErrorSeverity.MEDIUM,
+        { operation: 'pluginUnload' }
+      );
+    }
   }
 
   private registerCommands(): void {
@@ -76,6 +101,16 @@ export default class MaskBuilderPlugin extends Plugin {
       name: "Переместить файл по маске",
       callback: () => this.moveCurrentFileByMask(),
     });
+
+    // Команда для отладки (только в режиме разработки)
+    if (this.settings.enabled) {
+      this.addCommand({
+        id: "open-debug-panel",
+        name: "Открыть панель отладки",
+        callback: () => this.openDebugPanel(),
+        hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "D" }],
+      });
+    }
   }
 
   private registerEventHandlers(): void {
@@ -109,29 +144,49 @@ export default class MaskBuilderPlugin extends Plugin {
   }
 
   private async processFile(file: TFile): Promise<void> {
+    performanceMonitor.startTimer('fileProcessing');
+    
     try {
       // Извлекаем маску из имени файла
       const mask = this.extractMaskFromFileName(file.name);
-      if (!mask) return;
+      if (!mask) {
+        performanceMonitor.endTimer('fileProcessing');
+        return;
+      }
 
       // Валидируем маску если включено
       if (this.settings.maskValidation) {
+        performanceMonitor.startTimer('maskValidation');
         const validation = MaskParser.validate(mask);
+        performanceMonitor.endTimer('maskValidation');
+        
         if (!validation.valid) {
-          console.warn(`Invalid mask in file ${file.name}:`, validation.errors);
+          errorHandler.handleValidationError(
+            `Invalid mask in file ${file.name}: ${validation.errors.join(', ')}`,
+            { fileName: file.name, mask, errors: validation.errors }
+          );
+          performanceMonitor.endTimer('fileProcessing');
           return;
         }
       }
 
       // Обновляем фронтматтер
+      performanceMonitor.startTimer('fileOperations');
       await this.fileManager.updateFrontmatter(file, mask);
+      performanceMonitor.endTimer('fileOperations');
 
       // Автоматически перемещаем файл если включено
       if (this.settings.autoCategorize) {
         await this.autoMoveFile(file, mask);
       }
+      
+      performanceMonitor.endTimer('fileProcessing');
     } catch (error) {
-      console.error(`Error processing file ${file.name}:`, error);
+      errorHandler.handleFileOperationError(
+        error instanceof Error ? error : new Error(String(error)),
+        { fileName: file.name, operation: 'processFile' }
+      );
+      performanceMonitor.endTimer('fileProcessing');
     }
   }
 
@@ -157,7 +212,10 @@ export default class MaskBuilderPlugin extends Plugin {
       // Перемещаем файл
       await this.fileManager.moveFileByMask(file, mask);
     } catch (error) {
-      console.error(`Error auto-moving file ${file.name}:`, error);
+      errorHandler.handleFileOperationError(
+        error instanceof Error ? error : new Error(String(error)),
+        { fileName: file.name, operation: 'autoMoveFile', mask }
+      );
     }
   }
 
@@ -181,7 +239,10 @@ export default class MaskBuilderPlugin extends Plugin {
       // Проверяем, нужно ли перемещать файл
       await this.autoMoveFile(file, mask);
     } catch (error) {
-      console.error(`Error checking frontmatter changes for ${file.name}:`, error);
+      errorHandler.handleFileOperationError(
+        error instanceof Error ? error : new Error(String(error)),
+        { fileName: file.name, operation: 'checkFrontmatterChanges' }
+      );
     }
   }
 
@@ -211,7 +272,10 @@ export default class MaskBuilderPlugin extends Plugin {
         this.app.workspace.openLinkText(file.path, "", true);
       }
     } catch (error) {
-      console.error("Error creating file from mask:", error);
+      errorHandler.handleFileOperationError(
+        error instanceof Error ? error : new Error(String(error)),
+        { operation: 'createFileFromMask', mask }
+      );
       new Notice("Ошибка создания файла. Проверьте консоль.");
     }
   }
@@ -276,13 +340,38 @@ export default class MaskBuilderPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const raw = await this.loadData();
-    const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
-    this.settings = migrateSettings(merged);
+    try {
+      const raw = await this.loadData();
+      const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
+      this.settings = migrateSettings(merged);
+    } catch (error) {
+      errorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        ErrorCategory.UNKNOWN,
+        ErrorSeverity.HIGH,
+        { operation: 'loadSettings' }
+      );
+      // Используем настройки по умолчанию в случае ошибки
+      this.settings = DEFAULT_SETTINGS;
+    }
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    try {
+      await this.saveData(this.settings);
+    } catch (error) {
+      errorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        ErrorCategory.UNKNOWN,
+        ErrorSeverity.HIGH,
+        { operation: 'saveSettings' }
+      );
+    }
+  }
+
+  private openDebugPanel(): void {
+    const debugPanel = new DebugPanel(this.app);
+    debugPanel.open();
   }
 }
 
