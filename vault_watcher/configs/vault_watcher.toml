@@ -1,0 +1,224 @@
+# Vault Watcher Configuration
+# Основной конфигурационный файл для системы управления файлами
+
+[general]
+# Основные настройки
+vault_path = "/path/to/your/vault"
+log_level = "INFO"
+log_format = "json"
+dry_run = false
+backup_enabled = true
+backup_retention_days = 30
+
+# Настройки GUI
+gui_theme = "dark"
+gui_language = "ru"
+gui_window_size = [1200, 800]
+gui_auto_refresh_interval = 5
+
+[file_types]
+# Поддерживаемые типы файлов
+model_extensions = [
+    ".stl", ".obj", ".fbx", ".dae", ".ply", 
+    ".gltf", ".glb", ".3ds", ".blend", 
+    ".step", ".stp", ".iges", ".igs"
+]
+
+note_extensions = [".md", ".txt", ".rst"]
+
+document_extensions = [".pdf", ".doc", ".docx", ".odt"]
+
+image_extensions = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]
+
+[folders]
+# Структура папок
+inbox = "0_INBOX"
+ongoing = "_ONGOING"
+projects = "1_PROJECTS"
+categories = "2_CATEGORIES"
+resources = "3_RESOURCES"
+admin = "9_ADMIN"
+
+[projects]
+# Настройки проектов
+structure = [
+    "notes",
+    "models/src",
+    "models/glb", 
+    "assets",
+    "docs",
+    "_meta"
+]
+
+meta_template = """
+---
+schema: v1
+type: project
+code: {code}
+title: {title}
+status: active
+created: {created}
+updated: {updated}
+tags: []
+---
+
+# {title}
+
+## Описание
+
+## Задачи
+
+## Модели
+
+## Документы
+
+## Ссылки
+"""
+
+[categories]
+# Настройки категорий
+structure = [
+    "notes",
+    "incoming",
+    "assets",
+    "_meta"
+]
+
+meta_template = """
+---
+schema: v1
+type: category
+code: {code}
+title: {title}
+status: active
+created: {created}
+updated: {updated}
+tags: []
+---
+
+# {title}
+
+## Назначение
+
+## Подкатегории
+
+## Проекты (активные)
+
+## Ресурсы
+"""
+
+[resources]
+# Настройки ресурсов
+parts_structure = [
+    "models/src",
+    "models/glb",
+    "docs",
+    "assets"
+]
+
+part_meta_template = """
+---
+schema: v1
+type: part
+code: {code}
+title: {title}
+created: {created}
+updated: {updated}
+tags: []
+---
+
+# {title}
+
+## Описание
+
+## Технические характеристики
+
+## Модели
+
+## Документация
+"""
+
+[processing]
+# Настройки обработки файлов
+enable_3d_conversion = true
+enable_hash_deduplication = true
+enable_auto_categorization = true
+enable_backup = true
+
+[3d_conversion]
+# Настройки конвертации 3D моделей
+enable_validator = true
+enable_gltfpack = true
+axis = "+Yup"
+units = "mm"
+default_scale = 0.001
+conversion_tools = [
+    "FBX2glTF",
+    "assimp", 
+    "blender"
+]
+
+[hash_database]
+# Настройки базы хешей
+file = "9_ADMIN/hash_index.json"
+algorithm = "sha256"
+chunk_size = 1048576  # 1MB
+
+[logging]
+# Настройки логирования
+directory = "9_ADMIN/logs"
+max_size_mb = 100
+backup_count = 5
+format = "json"
+
+[api]
+# Настройки API
+enabled = true
+host = "127.0.0.1"
+port = 8080
+cors_origins = ["http://localhost:3000"]
+rate_limit = 100
+
+[database]
+# Настройки базы данных (опционально)
+enabled = false
+url = "postgresql://user:pass@localhost/vault_watcher"
+pool_size = 10
+max_overflow = 20
+
+[redis]
+# Настройки Redis (опционально)
+enabled = false
+url = "redis://localhost:6379"
+db = 0
+
+[notifications]
+# Настройки уведомлений
+enabled = true
+desktop_notifications = true
+email_notifications = false
+smtp_server = ""
+smtp_port = 587
+smtp_username = ""
+smtp_password = ""
+
+[security]
+# Настройки безопасности
+encrypt_sensitive_data = false
+backup_encryption = false
+file_permissions = "644"
+directory_permissions = "755"
+
+[performance]
+# Настройки производительности
+max_workers = 4
+file_scan_interval = 30
+batch_size = 100
+memory_limit_mb = 512
+
+[plugins]
+# Настройки плагинов
+enabled = true
+plugin_directory = "plugins"
+auto_load = true
+sandboxed = true
