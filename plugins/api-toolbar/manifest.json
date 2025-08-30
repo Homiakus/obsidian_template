@@ -1,0 +1,9 @@
+{
+  "id": "api-toolbar",
+  "name": "API Toolbar",
+  "version": "0.1.0",
+  "minAppVersion": "1.9.0",
+  "description": "Always visible bottom toolbar with configurable buttons that send HTTP requests.",
+  "author": "Team",
+  "isDesktopOnly": false
+}
