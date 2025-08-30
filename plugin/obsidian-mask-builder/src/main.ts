@@ -3,10 +3,12 @@ import { PluginSettings, DEFAULT_SETTINGS, migrateSettings } from "./settings";
 import { MaskBuilderSettingTab } from "./ui/settings-tab";
 import { MaskBuilderModal } from "./ui/mask-builder-modal";
 import { DebugPanel } from "./ui/debug-panel";
+import { AnalyticsPanel } from "./ui/analytics-panel";
 import { MaskParser, ParsedMask } from "./utils/mask-parser";
 import { FileManager } from "./utils/file-manager";
 import { performanceMonitor } from "./utils/performance-monitor";
 import { errorHandler, ErrorCategory, ErrorSeverity } from "./utils/error-handler";
+import { initializeAnalytics, getAnalytics } from "./utils/analytics";
 
 export default class MaskBuilderPlugin extends Plugin {
   settings: PluginSettings = DEFAULT_SETTINGS;
@@ -20,6 +22,9 @@ export default class MaskBuilderPlugin extends Plugin {
     try {
       // Загружаем настройки с миграцией
       await this.loadSettings();
+
+      // Инициализируем аналитику
+      initializeAnalytics("1.0.0", this.settings);
 
       // Инициализируем менеджер файлов
       this.fileManager = new FileManager(this.app);
@@ -110,6 +115,14 @@ export default class MaskBuilderPlugin extends Plugin {
         callback: () => this.openDebugPanel(),
         hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "D" }],
       });
+
+      // Команда для аналитики
+      this.addCommand({
+        id: "open-analytics-panel",
+        name: "Открыть панель аналитики",
+        callback: () => this.openAnalyticsPanel(),
+        hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "A" }],
+      });
     }
   }
 
@@ -160,6 +173,12 @@ export default class MaskBuilderPlugin extends Plugin {
         const validation = MaskParser.validate(mask);
         performanceMonitor.endTimer('maskValidation');
         
+        // Отслеживаем валидацию в аналитике
+        const analytics = getAnalytics();
+        if (analytics) {
+          analytics.trackMaskValidation(file.name, validation.valid, validation.errors);
+        }
+        
         if (!validation.valid) {
           errorHandler.handleValidationError(
             `Invalid mask in file ${file.name}: ${validation.errors.join(', ')}`,
@@ -174,6 +193,12 @@ export default class MaskBuilderPlugin extends Plugin {
       performanceMonitor.startTimer('fileOperations');
       await this.fileManager.updateFrontmatter(file, mask);
       performanceMonitor.endTimer('fileOperations');
+
+      // Отслеживаем файловые операции в аналитике
+      const analytics = getAnalytics();
+      if (analytics) {
+        analytics.trackFileOperation('updateFrontmatter', file.name, true);
+      }
 
       // Автоматически перемещаем файл если включено
       if (this.settings.autoCategorize) {
@@ -211,11 +236,23 @@ export default class MaskBuilderPlugin extends Plugin {
 
       // Перемещаем файл
       await this.fileManager.moveFileByMask(file, mask);
+      
+      // Отслеживаем перемещение в аналитике
+      const analytics = getAnalytics();
+      if (analytics) {
+        analytics.trackFileOperation('moveFile', file.name, true);
+      }
     } catch (error) {
       errorHandler.handleFileOperationError(
         error instanceof Error ? error : new Error(String(error)),
         { fileName: file.name, operation: 'autoMoveFile', mask }
       );
+      
+      // Отслеживаем ошибку в аналитике
+      const analytics = getAnalytics();
+      if (analytics) {
+        analytics.trackFileOperation('moveFile', file.name, false);
+      }
     }
   }
 
@@ -270,12 +307,27 @@ export default class MaskBuilderPlugin extends Plugin {
       if (file) {
         // Открываем созданный файл
         this.app.workspace.openLinkText(file.path, "", true);
+        
+        // Отслеживаем создание файла в аналитике
+        const analytics = getAnalytics();
+        if (analytics) {
+          analytics.trackMaskCreated(mask.entity, true);
+          analytics.trackFileOperation('createFile', file.name, true);
+        }
       }
     } catch (error) {
       errorHandler.handleFileOperationError(
         error instanceof Error ? error : new Error(String(error)),
         { operation: 'createFileFromMask', mask }
       );
+      
+      // Отслеживаем ошибку в аналитике
+      const analytics = getAnalytics();
+      if (analytics) {
+        analytics.trackMaskCreated(mask.entity, false);
+        analytics.trackFileOperation('createFile', 'unknown', false);
+      }
+      
       new Notice("Ошибка создания файла. Проверьте консоль.");
     }
   }
@@ -372,6 +424,11 @@ export default class MaskBuilderPlugin extends Plugin {
   private openDebugPanel(): void {
     const debugPanel = new DebugPanel(this.app);
     debugPanel.open();
+  }
+
+  private openAnalyticsPanel(): void {
+    const analyticsPanel = new AnalyticsPanel(this.app);
+    analyticsPanel.open();
   }
 }
 
