@@ -6,12 +6,19 @@ CTM Vault Starter предоставляет структурированную 
 - **1_PROJECTS/** — папка для проектов (созданы): PROJ-HYDROPILOT, PROJ-ONE24, PROJ-ONEPAP1, PROJ-TABLE-PEN, PROJ-LINIYA-ROZLIVA
 - **2_CATEGORIES/** — папка для категорий (LLM, MED, ENG, HYP, HLTH, ACC, KB, LNX, WIN, TRIZ, SYSAN, DEV, ELEC, CNMKT)
 - **3_RESOURCES/** — ресурсы: части, системы, источники, законы
+- **kb/** — отдельная папка для структурированной базы знаний
+- **kb/contacts/** — контакты команды; заметки по шаблону `contact_template.md`
 - **schemas/** — JSON Schema v1 для разных типов (проекты, категории, части, источники, заметки)
-- **scripts/** — служебные скрипты: валидация фронтматтера (`validate_frontmatter.py`) и недельный отчёт (`report_week.py`)
+- **scripts/** — служебные скрипты: валидация фронтматтера (`validate_frontmatter.py`), недельный отчёт (`report_week.py`), экспорт архивов (`export_archive.py`)
 - **vault_watcher.py** — наблюдатель, автоматически переносит файлы и обрабатывает 3D-модели
-- **templates/** — универсальные шаблоны для создания заметок на основе масок
+- **templates/** — универсальные шаблоны для создания заметок на основе масок; включает `contact_template.md` и `standard_item_template.md` с почтовой интеграцией и кнопкой экспорта архива
 - **plugin/obsidian-mask-builder/** — плагин для Obsidian, который позволяет создавать заметки на основе масок
 - **.gitattributes** — для использования Git LFS с большими бинарными файлами
+
+Подробнее об архитектуре см. [docspro/architecture/structure.md](docspro/architecture/structure.md).
+
+Заметки проектов и базы знаний могут содержать подпапку `archive/` для хранения материалов; кнопка `Export archive` в шаблоне `standard_item_template.md` выгружает содержимое в каталог `export/`.
+
 
 ## Установка и настройка
 1. Скопируйте все файлы в корень вашего Obsidian Vault или внутрь репозитория.
