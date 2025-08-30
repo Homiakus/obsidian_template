@@ -1,0 +1,37 @@
+{
+  "name": "obsidian-mask-builder",
+  "version": "1.0.0",
+  "description": "Создание заметок на основе масок CTM с автоматической категоризацией",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node -p \"require('./package.json').version\"",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "mask",
+    "ctm",
+    "knowledge-management"
+  ],
+  "author": "CTM Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "esbuild": "^0.19.0",
+    "eslint": "^8.0.0",
+    "obsidian": "^1.9.0",
+    "tslib": "^2.6.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
+  }
+}
