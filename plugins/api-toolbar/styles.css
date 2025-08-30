@@ -1,0 +1,47 @@
+.api-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 4px);
+  background-color: var(--background-secondary);
+  border-top: 1px solid var(--divider-color);
+  z-index: 100;
+  overflow-x: auto;
+}
+.api-toolbar-button {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+.api-toolbar-button.is-running {
+  opacity: 0.6;
+}
+.api-toolbar-button .icon {
+  width: 16px;
+  height: 16px;
+}
+.api-toolbar-button .spinner {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text-muted);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: api-toolbar-spin 1s linear infinite;
+}
+@keyframes api-toolbar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
