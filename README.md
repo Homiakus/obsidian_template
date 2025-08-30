@@ -1,49 +1,83 @@
-# Obsidian KB Starter (проект-центричная система)
+# CTM Vault Starter — Система знаний с масками
 
-Готовый каркас: схемы JSON, валидатор фронтматтера (pre-commit), усиленный демон-маршрутизатор с 3D-конвейером (.glb), Dockerfile, экспорт JSON-LD, шаблоны Templater.
+CTM Vault Starter предоставляет структурированную систему для работы с базой знаний, включая проекты, категории, и различные источники данных. Это каркас для вашего Obsidian Vault, включающий CTM-маски для организации заметок, скрипты для обработки и автоматической категоризации, а также дополнительные плагины для удобства работы с проектами и категориями.
 
-## Шаги установки
+## Что внутри:
+- **1_PROJECTS/** — папка для проектов (созданы): PROJ-HYDROPILOT, PROJ-ONE24, PROJ-ONEPAP1, PROJ-TABLE-PEN, PROJ-LINIYA-ROZLIVA
+- **2_CATEGORIES/** — папка для категорий (LLM, MED, ENG, HYP, HLTH, ACC, KB, LNX, WIN, TRIZ, SYSAN, DEV, ELEC, CNMKT)
+- **3_RESOURCES/** — ресурсы: части, системы, источники, законы
+- **schemas/** — JSON Schema v1 для разных типов (проекты, категории, части, источники, заметки)
+- **scripts/** — служебные скрипты: валидация фронтматтера (`validate_frontmatter.py`) и недельный отчёт (`report_week.py`)
+- **vault_watcher.py** — наблюдатель, автоматически переносит файлы и обрабатывает 3D-модели
+- **templates/** — универсальные шаблоны для создания заметок на основе масок
+- **plugin/obsidian-mask-builder/** — плагин для Obsidian, который позволяет создавать заметки на основе масок
+- **.gitattributes** — для использования Git LFS с большими бинарными файлами
 
-1) **Склонируй репозиторий** и включи Git LFS:
-```bash
-git lfs install
-```
+## Установка и настройка
+1. Скопируйте все файлы в корень вашего Obsidian Vault или внутрь репозитория.
+2. Обновите путь в `vault_watcher.py` в параметре `CONFIG["vault"]`.
+3. Установите зависимости для pre-commit:
+   ```bash
+   pip install pre-commit jsonschema pyyaml
+   pre-commit install
+   ```
+4. Установите Git LFS:
+   ```bash
+   git lfs install
+   git add .gitattributes && git commit -m "Enable LFS"
+   ```
 
-2) **Положи папку/файлы** в корень рядом с твоим Obsidian Vault или внутри репо конфигураций.
+## Использование
 
-3) **Настрой демона**:
-- Открой `vault_watcher.py`, поставь `CONFIG["vault"]` на путь к твоему вольту.
-- Запусти: `python3 vault_watcher.py` (или через systemd/pm2).
+* Для создания новой заметки по маске без плагина:
+  1. Создайте файл в папке `0_INBOX` с именем, например: `[M:NOTE-PRJ.ENG.DRA.INT@PROJ-HYDROPILOT] План.md`.
+  2. Запустите наблюдатель:
+     ```bash
+     python3 vault_watcher.py
+     ```
+  3. Заметка будет автоматически перемещена в `1_PROJECTS/PROJ-HYDROPILOT/notes/` с правильным фронтматтером.
 
-4) **Pre-commit** (опционально):
-```bash
-pip install pre-commit jsonschema pyyaml
-pre-commit install
-```
-При коммите будет валидироваться фронтматтер `.md` по `schemas/*`.
+* Для создания заметки в базе знаний (KB):
+  * Во фронтматтере добавьте `kb: true` или используйте `.KB` в маске, например: `NOTE-CAT.KB.AC.PUB@CAT-KB`. Это переместит заметку в папку `2_CATEGORIES/CAT-KB/notes/`.
 
-5) **Docker для 3D** (опционально):
-Собери образ: `docker build -t gltf-pipeline .`
+## Плагин Mask Builder (опционально)
 
-6) **Obsidian**:
-- Скопируй файлы из `templates/` в папку `3_RESOURCES/templates/` твоего вольта.
-- Установи плагины: Templater, Linter, QuickAdd, Tasks, Model Viewer.
-- Добавь команды на «узкую ленту» (Commander или мини-плагин).
+1. Папка `plugin/obsidian-mask-builder` содержит исходники плагина для Obsidian.
+2. Чтобы установить плагин:
+   * Включите «Developer Mode» в Obsidian и выберите «Load unpacked plugin», указав эту папку.
+   * Для сборки плагина потребуется esbuild/rollup.
 
-## Маркеры назначения
-- В имени файла: `[P:PROJ-XXXX]`, `[R:PART-0001]`, `[C:CAT-XXX]`.
-- Или рядом файл `.assign` с `P:...`/`R:...`/`C:...`.
+## Маски
 
-## Где что лежит
-- `schemas/` — JSON Schema для `project/category/part/source/note`.
-- `scripts/validate_frontmatter.py` — валидатор для pre-commit.
-- `vault_watcher.py` — демон: маршрутизация, glb-конверт, вставка `<model-viewer>`, логи, дедуп.
-- `export/context.jsonld` — контекст для портируемого экспорта.
-- `templates/` — Templater-шаблоны.
+Маски в формате `E[-S][.A1][.A2]...[.L][.C][.F][+R...][@ANCHOR]` используются для автоматической категоризации заметок.
+Пример: `DEC-ADR.MED.ACC.AC.INT@PROJ-HYDROPILOT+LAW-ISO17025`.
 
-## Отчёт за неделю
-```bash
-python3 scripts/report_week.py /path/to/Vault/9_ADMIN/logs 7
-```
+### Коды областей:
 
-Удачной работы!
+* LLM, MED, ENG, HYP, HLTH, ACC, KB, LNX, WIN, TRIZ, SYSAN, DEV, ELEC, CNMKT
+
+### Статусы:
+
+* DRA (draft), AC (active), PAU (paused), DON (done), DEP (deprecated)
+
+### Доступ:
+
+* PUB (public), INT (internal), PRV (private)
+
+### Форматы:
+
+* MD (Markdown), GLB (3D Model), CAD (CAD Files), PDF, PNG, SRC (source code)
+
+## Ограничения
+
+* Маска должна иметь ровно одну привязку (проект или категория).
+* Маска может содержать не более 5 областей.
+* Одно имя файла не должно превышать 140 символов.
+
+## Проекты:
+
+* PROJ-HYDROPILOT — Hydropilot
+* PROJ-ONE24 — One24
+* PROJ-ONEPAP1 — Onepap1
+* PROJ-TABLE-PEN — Table, pen
+* PROJ-LINIYA-ROZLIVA — Линия розлива
