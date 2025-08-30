@@ -1,0 +1,236 @@
+# Pre-commit configuration for Vault Watcher
+# Автоматическая проверка качества кода перед коммитом
+
+repos:
+  # Python code formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: [--profile=black]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+        args: [--ignore-missing-imports]
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, src/]
+        exclude: ^tests/
+
+  # Dependency vulnerability scanning
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.6.0
+    hooks:
+      - id: pip-audit
+        args: [--requirement, requirements.txt]
+
+  # TOML formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.3
+    hooks:
+      - id: prettier
+        types: [toml]
+        files: \.(toml|TOML)$
+
+  # YAML formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.3
+    hooks:
+      - id: prettier
+        types: [yaml]
+        files: \.(yaml|yml|YAML|YML)$
+
+  # JSON formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.3
+    hooks:
+      - id: prettier
+        types: [json]
+        files: \.(json|JSON)$
+
+  # Markdown formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.3
+    hooks:
+      - id: prettier
+        types: [markdown]
+        files: \.(md|markdown|MD|MARKDOWN)$
+
+  # Trailing whitespace and end of files
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: debug-statements
+
+  # Git hooks
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.3
+    hooks:
+      - id: prettier
+        files: \.(gitignore|gitattributes)$
+
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009]
+
+  # Shell script linting
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.9.0
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning]
+
+  # Commit message formatting
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.13.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  # License headers
+  - repo: https://github.com/apache/skywalking-eyes
+    rev: main
+    hooks:
+      - id: header
+        args: [--license, MIT]
+
+  # Spell checking
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.16.0
+    hooks:
+      - id: typos
+        args: [--write-changes]
+
+  # Large file detection
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  # Secret detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
+  # Test coverage
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: [--cov=vault_watcher, --cov-report=term-missing, --cov-fail-under=80]
+
+  # Documentation build check
+  - repo: local
+    hooks:
+      - id: docs-build
+        name: Build documentation
+        entry: mkdocs build
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]
+
+  # Docker build check
+  - repo: local
+    hooks:
+      - id: docker-build
+        name: Docker build test
+        entry: docker build -t vault-watcher-test .
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]
+
+  # Security scan
+  - repo: local
+    hooks:
+      - id: security-scan
+        name: Security scan
+        entry: bandit -r src/ -f json -o security-report.json
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]
+
+  # Performance check
+  - repo: local
+    hooks:
+      - id: performance-check
+        name: Performance check
+        entry: python -m pytest tests/performance/ --benchmark-only
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]
+
+# Global configuration
+default_language_version:
+  python: python3.12
+
+# Hook execution order
+default_stages: [commit, push]
+
+# Skip hooks for certain files
+exclude: |
+  (?x)^(
+      \.git/|
+      \.venv/|
+      build/|
+      dist/|
+      \.eggs/|
+      *.egg-info/|
+      __pycache__/|
+      \.pytest_cache/|
+      \.mypy_cache/|
+      htmlcov/|
+      \.coverage|
+      docs/_build/|
+      node_modules/|
+      \.tox/|
+      \.nox/
+  )$
+
+# Custom configurations
+ci:
+  autofix_commit_msg: 'style: auto fixes from pre-commit hooks
+
+    [skip ci]'
+  autoupdate_commit_msg: 'ci: pre-commit autoupdate
+
+    [skip ci]'
