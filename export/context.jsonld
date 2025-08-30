@@ -1,0 +1,16 @@
+{
+  "@context": {
+    "id": "@id",
+    "type": "@type",
+    "Project": "https://schema.org/Project",
+    "CreativeWork": "https://schema.org/CreativeWork",
+    "Person": "https://schema.org/Person",
+    "code": "https://schema.org/identifier",
+    "title": "https://schema.org/name",
+    "status": "https://schema.org/creativeWorkStatus",
+    "primary_category": "primaryCategory",
+    "categories": "category",
+    "uses_part": "usesPart",
+    "implements_law": "implementsLaw"
+  }
+}

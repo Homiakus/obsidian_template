@@ -1,0 +1,50 @@
+{
+  "$id": "schemas/category.json",
+  "type": "object",
+  "required": [
+    "id",
+    "schema",
+    "type",
+    "code",
+    "title",
+    "status",
+    "created"
+  ],
+  "properties": {
+    "schema": {
+      "const": "v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}-\\d{2,6}$"
+    },
+    "type": {
+      "const": "category"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^CAT-[A-Z0-9-]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "deprecated",
+        "draft"
+      ]
+    },
+    "parent": {
+      "type": "string",
+      "pattern": "^CAT-[A-Z0-9-]+$"
+    },
+    "owners": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

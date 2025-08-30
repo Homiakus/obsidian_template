@@ -1,0 +1,8 @@
+repos:
+- repo: local
+  hooks:
+  - id: frontmatter-validate
+    name: Validate YAML frontmatter against JSON Schema
+    entry: python scripts/validate_frontmatter.py
+    language: system
+    files: \.md$
