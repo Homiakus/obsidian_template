@@ -1,0 +1,651 @@
+/* Стили для ленточного меню */
+.mask-builder-ribbon-menu {
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.ribbon-header {
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.ribbon-header h4 {
+  margin: 0;
+  color: var(--text-normal);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ribbon-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+.ribbon-action-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 50px;
+  min-height: 50px;
+  justify-content: center;
+}
+
+.ribbon-action-icon:hover {
+  background: var(--background-modifier-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ribbon-action-icon.hover {
+  background: var(--background-modifier-hover);
+}
+
+.ribbon-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-normal);
+  margin-bottom: 4px;
+}
+
+.ribbon-action-icon:hover .ribbon-icon {
+  color: var(--text-accent);
+}
+
+.ribbon-settings-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+}
+
+.ribbon-settings-button:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+  .ribbon-icons {
+    gap: 8px;
+  }
+  
+  .ribbon-action-icon {
+    min-width: 45px;
+    min-height: 45px;
+    padding: 6px;
+  }
+  
+  .ribbon-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Анимации для значков */
+.ribbon-action-icon {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.ribbon-action-icon:nth-child(1) { animation-delay: 0.1s; }
+.ribbon-action-icon:nth-child(2) { animation-delay: 0.2s; }
+.ribbon-action-icon:nth-child(3) { animation-delay: 0.3s; }
+.ribbon-action-icon:nth-child(4) { animation-delay: 0.4s; }
+.ribbon-action-icon:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Стили для активного состояния */
+.ribbon-action-icon:active {
+  transform: translateY(0);
+  transition: transform 0.1s ease;
+}
+
+/* Стили для отключенных действий */
+.ribbon-action-icon.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ribbon-action-icon.disabled:hover {
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Стили для подсказок */
+.ribbon-action-icon[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Стили для группировки действий */
+.ribbon-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+}
+
+.ribbon-action-group-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Стили для модального окна настроек ленточного меню */
+.ribbon-actions-container {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.ribbon-action-setting {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.action-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.action-header h4 {
+  margin: 0;
+  color: var(--text-normal);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.action-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.icon-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--background-primary);
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.icon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-normal);
+}
+
+.icon-preview-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.custom-action-field {
+  padding: 10px;
+  background: var(--background-primary);
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+/* Стили для кнопок */
+.button-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Адаптивность для модального окна */
+@media (max-width: 768px) {
+  .ribbon-action-setting {
+    padding: 10px;
+  }
+  
+  .action-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .button-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .button-container button {
+    width: 100%;
+  }
+}
+
+/* Анимации для настроек */
+.ribbon-action-setting {
+  animation: slideIn 0.3s ease-out;
+}
+
+.ribbon-action-setting:nth-child(1) { animation-delay: 0.1s; }
+.ribbon-action-setting:nth-child(2) { animation-delay: 0.2s; }
+.ribbon-action-setting:nth-child(3) { animation-delay: 0.3s; }
+.ribbon-action-setting:nth-child(4) { animation-delay: 0.4s; }
+.ribbon-action-setting:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Стили для слайдера порядка */
+.setting-item-control input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--background-modifier-border);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.setting-item-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-accent);
+  cursor: pointer;
+}
+
+.setting-item-control input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-accent);
+  cursor: pointer;
+  border: none;
+}
+
+/* Стили для переключателей */
+.setting-item-control input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--text-accent);
+}
+
+/* Стили для dropdown'ов */
+.setting-item-control select {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.setting-item-control select:focus {
+  outline: none;
+  border-color: var(--text-accent);
+}
+
+/* Стили для текстовых полей */
+.setting-item-control input[type="text"] {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 14px;
+  width: 100%;
+}
+
+.setting-item-control input[type="text"]:focus {
+  outline: none;
+  border-color: var(--text-accent);
+}
+
+/* Стили для описаний */
+.setting-item-description {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 20px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Ленточное меню в основном интерфейсе Obsidian */
+.mask-builder-ribbon-container {
+  position: fixed !important;
+  bottom: 0 !important;
+  /* Центрируем между боковыми панелями */
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: calc(100vw - 500px) !important; /* Ширина минус боковые панели */
+  max-width: 800px !important; /* Максимальная ширина */
+  min-width: 400px !important; /* Минимальная ширина */
+  height: 60px !important;
+  background: var(--background-secondary) !important;
+  border-top: 1px solid var(--background-modifier-border) !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 20px !important;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
+  /* Убираем отладочные стили */
+  min-height: 60px !important;
+  /* Центрируем содержимое */
+  justify-content: center !important;
+  /* Дополнительные стили для видимости */
+  border-radius: 8px 8px 0 0 !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* Убираем отладочные стили для видимости */
+.mask-builder-ribbon-container * {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.mask-builder-ribbon-container .mask-builder-ribbon-menu {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  /* Убираем отладочные стили */
+}
+
+.mask-builder-ribbon-container .ribbon-header {
+  display: flex !important;
+  align-items: center !important;
+  margin-right: 20px !important; /* Увеличиваем отступ для лучшего распределения */
+  /* Ограничиваем размеры */
+  flex-shrink: 0 !important;
+  min-width: 100px !important; /* Уменьшаем ширину заголовка */
+  max-width: 120px !important; /* Ограничиваем максимальную ширину */
+}
+
+.mask-builder-ribbon-container .ribbon-header h4 {
+  margin: 0 !important;
+  font-size: 13px !important; /* Уменьшаем размер шрифта */
+  font-weight: 600 !important;
+  color: var(--text-normal) !important;
+  /* Ограничиваем размеры */
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.mask-builder-ribbon-container .ribbon-icons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important; /* Уменьшаем gap между значками */
+  flex: 1 !important;
+  /* Ограничиваем размеры */
+  max-width: 100% !important;
+  overflow: hidden !important;
+  /* Равномерно распределяем значки по всей ширине */
+  justify-content: space-between !important;
+  /* Добавляем padding для безопасности */
+  padding: 0 10px !important;
+  box-sizing: border-box !important;
+}
+
+.mask-builder-ribbon-container .ribbon-action-icon {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  cursor: pointer !important;
+  padding: 6px !important; /* Уменьшаем padding */
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  min-width: 50px !important;
+  /* Ограничиваем размеры */
+  max-width: 60px !important;
+  height: 50px !important; /* Фиксированная высота */
+  box-sizing: border-box !important;
+  /* Центрируем содержимое */
+  justify-content: center !important;
+}
+
+.mask-builder-ribbon-container .ribbon-action-icon:hover {
+  background: var(--background-modifier-hover);
+  transform: translateY(-2px);
+}
+
+.mask-builder-ribbon-container .ribbon-action-icon.hover {
+  background: var(--background-modifier-hover);
+}
+
+.mask-builder-ribbon-container .ribbon-icon {
+  width: 20px !important; /* Уменьшаем размер иконки */
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--text-normal) !important;
+  /* Ограничиваем размеры */
+  flex-shrink: 0 !important;
+}
+
+.mask-builder-ribbon-container .ribbon-icon svg {
+  width: 18px !important; /* Уменьшаем размер SVG */
+  height: 18px !important;
+  /* Ограничиваем размеры */
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.mask-builder-ribbon-container .ribbon-action-icon:hover .ribbon-icon {
+  color: var(--text-accent);
+}
+
+/* Стили для кнопки настроек */
+.mask-builder-ribbon-container .ribbon-settings-button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 8px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  /* Ограничиваем размеры */
+  width: 40px !important;
+  height: 40px !important;
+  flex-shrink: 0 !important;
+}
+
+.mask-builder-ribbon-container .ribbon-settings-button:hover {
+  background: var(--background-modifier-hover) !important;
+  transform: translateY(-2px) !important;
+}
+
+.mask-builder-ribbon-container .ribbon-settings-button svg {
+  width: 20px !important;
+  height: 20px !important;
+  color: var(--text-normal) !important;
+}
+
+/* Адаптивность для разных размеров экрана */
+@media (max-width: 768px) {
+  .mask-builder-ribbon-container {
+    height: 50px !important;
+    padding: 0 10px !important;
+    /* На мобильных устройствах используем всю ширину */
+    left: 0 !important;
+    right: 0 !important;
+    width: calc(100vw - 40px) !important;
+    transform: none !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-icons {
+    gap: 8px !important;
+    padding: 0 5px !important;
+    /* На мобильных устройствах центрируем значки */
+    justify-content: center !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-action-icon {
+    min-width: 35px !important;
+    max-width: 45px !important;
+    height: 40px !important;
+    padding: 4px !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-icon {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-icon svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-header {
+    min-width: 80px !important;
+    margin-right: 10px !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-header h4 {
+    font-size: 12px !important;
+  }
+}
+
+/* Адаптивность для средних размеров экрана */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .mask-builder-ribbon-container .ribbon-icons {
+    /* На средних экранах используем space-around для лучшего распределения */
+    justify-content: space-around !important;
+    gap: 15px !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-header {
+    min-width: 90px !important;
+    margin-right: 15px !important;
+  }
+}
+
+/* Адаптивность для больших экранов */
+@media (min-width: 1201px) {
+  .mask-builder-ribbon-container .ribbon-icons {
+    /* На больших экранах используем space-between для максимального распределения */
+    justify-content: space-between !important;
+    gap: 20px !important;
+  }
+  
+  .mask-builder-ribbon-container .ribbon-header {
+    min-width: 110px !important;
+    margin-right: 25px !important;
+  }
+}
+
+/* Адаптация для состояния с закрытыми боковыми панелями */
+.workspace-split.mod-left-split-collapsed .mask-builder-ribbon-container {
+  width: calc(100vw - 250px) !important; /* Только правая панель */
+}
+
+.workspace-split.mod-right-split-collapsed .mask-builder-ribbon-container {
+  width: calc(100vw - 250px) !important; /* Только левая панель */
+}
+
+/* Адаптация для состояния с полностью закрытыми панелями */
+.workspace-split.mod-left-split-collapsed.workspace-split.mod-right-split-collapsed .mask-builder-ribbon-container {
+  width: calc(100vw - 100px) !important; /* Минимальные отступы */
+  max-width: 1200px !important;
+}
+
+/* Адаптация для узких боковых панелей */
+.workspace-split.mod-left-split .workspace-leaf {
+  min-width: 200px !important;
+}
+
+.workspace-split.mod-right-split .workspace-leaf {
+  min-width: 200px !important;
+}
+
+/* Дополнительные правила для разных состояний панелей */
+.workspace-split.mod-left-split:not(.mod-left-split-collapsed) .mask-builder-ribbon-container {
+  left: 250px !important;
+}
+
+.workspace-split.mod-right-split:not(.mod-right-split-collapsed) .mask-builder-ribbon-container {
+  right: 250px !important;
+}
+
+/* Темная тема */
+.theme-dark .mask-builder-ribbon-container {
+  background: var(--background-secondary);
+  border-top-color: var(--background-modifier-border);
+}
+
+/* Светлая тема */
+.theme-light .mask-builder-ribbon-container {
+  background: var(--background-secondary);
+  border-top-color: var(--background-modifier-border);
+}

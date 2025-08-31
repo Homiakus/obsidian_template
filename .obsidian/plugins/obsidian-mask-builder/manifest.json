@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-mask-builder",
+  "name": "Mask Builder",
+  "version": "1.0.0",
+  "minAppVersion": "1.9.0",
+  "description": "Создание заметок на основе масок CTM с автоматической категоризацией и организацией",
+  "author": "CTM Team",
+  "authorUrl": "https://github.com/ctm-team",
+  "isDesktopOnly": false,
+  "dependencies": []
+}

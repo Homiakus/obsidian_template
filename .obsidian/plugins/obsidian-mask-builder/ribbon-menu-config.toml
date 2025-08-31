@@ -1,0 +1,148 @@
+# Конфигурация ленточного меню для Mask Builder
+# Этот файл содержит настройки для всех кнопок ленточного меню
+
+[ribbon_menu]
+enabled = true
+position = "bottom"
+theme = "default"
+
+# Основные действия
+[[ribbon_menu.actions]]
+id = "format-content"
+name = "Форматировать содержимое"
+icon = "edit"
+action = "format"
+enabled = true
+order = 1
+description = "Форматирует содержимое заметки в Markdown"
+
+[[ribbon_menu.actions]]
+id = "send-to-api"
+name = "Отправить в API"
+icon = "upload"
+action = "api"
+enabled = true
+order = 2
+description = "Отправляет данные заметки в API"
+
+[[ribbon_menu.actions]]
+id = "create-note"
+name = "Создать заметку"
+icon = "plus"
+action = "create"
+enabled = true
+order = 3
+description = "Создает новую заметку на основе формы"
+
+[[ribbon_menu.actions]]
+id = "save-template"
+name = "Сохранить как шаблон"
+icon = "save"
+action = "custom"
+enabled = true
+order = 4
+custom_action = "saveTemplate"
+description = "Сохраняет текущую форму как шаблон"
+
+[[ribbon_menu.actions]]
+id = "export-markdown"
+name = "Экспорт Markdown"
+icon = "download"
+action = "custom"
+enabled = true
+order = 5
+custom_action = "exportMarkdown"
+description = "Экспортирует заметку в Markdown формат"
+
+# Действия для работы с фронтматтером
+[[ribbon_menu.actions]]
+id = "edit-frontmatter"
+name = "Редактировать фронтматтер"
+icon = "edit-3"
+action = "custom"
+enabled = true
+order = 6
+custom_action = "editFrontmatter"
+description = "Редактирует существующий фронтматтер"
+
+[[ribbon_menu.actions]]
+id = "create-frontmatter"
+name = "Создать фронтматтер"
+icon = "file-plus"
+action = "custom"
+enabled = true
+order = 7
+custom_action = "createFrontmatter"
+description = "Создает новый фронтматтер с очисткой формы"
+
+# Действия для навигации по категориям
+[[ribbon_menu.actions]]
+id = "open-notes"
+name = "Открыть заметки"
+icon = "book-open"
+action = "custom"
+enabled = true
+order = 8
+custom_action = "openNotes"
+description = "Быстрый доступ к папке с заметками"
+
+[[ribbon_menu.actions]]
+id = "open-projects"
+name = "Открыть проекты"
+icon = "folder"
+action = "custom"
+enabled = true
+order = 9
+custom_action = "openProjects"
+description = "Быстрый доступ к папке с проектами"
+
+[[ribbon_menu.actions]]
+id = "open-decisions"
+name = "Открыть решения"
+icon = "check-square"
+action = "custom"
+enabled = true
+order = 10
+custom_action = "openDecisions"
+description = "Быстрый доступ к папке с решениями"
+
+# Настройки отображения
+[ribbon_menu.display]
+show_tooltips = true
+show_labels = false
+icon_size = 24
+spacing = 10
+background_color = "var(--background-secondary)"
+border_color = "var(--background-modifier-border)"
+hover_effect = true
+animation_speed = 0.2
+
+# Настройки иконок
+[ribbon_menu.icons]
+default_icon = "edit"
+fallback_icon = "circle"
+custom_icons = [
+  "edit", "edit-3", "upload", "plus", "file-plus", "save", "download",
+  "settings", "search", "link", "tag", "calendar", "book-open", "folder", "check-square"
+]
+
+# Настройки тем
+[ribbon_menu.themes]
+default = { primary = "var(--text-normal)", secondary = "var(--text-muted)", accent = "var(--text-accent)" }
+dark = { primary = "#ffffff", secondary = "#cccccc", accent = "#7aa2f7" }
+light = { primary = "#000000", secondary = "#666666", accent = "#7aa2f7" }
+
+# Настройки API
+[ribbon_menu.api]
+endpoint = "https://api.example.com/notes"
+timeout = 5000
+retry_attempts = 3
+headers = { "Content-Type" = "application/json", "Authorization" = "Bearer token" }
+
+# Настройки логирования
+[ribbon_menu.logging]
+enabled = true
+level = "info"
+file = "ribbon-menu.log"
+max_size = "10MB"
+backup_count = 5
