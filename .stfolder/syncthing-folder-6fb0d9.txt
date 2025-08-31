@@ -1,0 +1,5 @@
+# This directory is a Syncthing folder marker.
+# Do not delete.
+
+folderID: vid5e-sg7gl
+created: 2025-08-31T08:45:09+03:00

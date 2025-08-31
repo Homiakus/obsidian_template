@@ -11,13 +11,32 @@
             "id": "e5f16898290bcaea",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "templates/electronic-project.md",
+                "mode": "source",
+                "source": true
+              },
               "icon": "lucide-file",
-              "title": "Новая вкладка"
+              "title": "electronic-project"
+            }
+          },
+          {
+            "id": "e494d080b489f45b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "docs/changelog.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "changelog"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -49,7 +68,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "",
+                "query": "tag:#contact",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -70,7 +89,8 @@
               "title": "Закладки"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -90,16 +110,17 @@
             "state": {
               "type": "backlink",
               "state": {
-                "collapseAll": false,
-                "extraContext": false,
+                "file": "docs/changelog.md",
+                "collapseAll": true,
+                "extraContext": true,
                 "sortOrder": "alphabetical",
-                "showSearch": false,
+                "showSearch": true,
                 "searchQuery": "",
                 "backlinkCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Обратные ссылки"
+              "title": "Обратные ссылки для changelog"
             }
           },
           {
@@ -108,11 +129,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "docs/changelog.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Исходящие ссылки"
+              "title": "Исходящие ссылки из changelog"
             }
           },
           {
@@ -136,15 +158,17 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "docs/changelog.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Структура"
+              "title": "Структура changelog"
             }
           }
-        ]
+        ],
+        "currentTab": 2
       }
     ],
     "direction": "horizontal",
@@ -153,6 +177,8 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "templater-obsidian:Templater": false,
+      "table-editor-obsidian:Advanced Tables Toolbar": false,
       "switcher:Меню быстрого перехода": false,
       "graph:Граф": false,
       "canvas:Создать новый холст": false,
@@ -162,6 +188,26 @@
       "bases:Создать новую базу": false
     }
   },
-  "active": "e5f16898290bcaea",
-  "lastOpenFiles": []
+  "active": "e494d080b489f45b",
+  "lastOpenFiles": [
+    "docs/ribbon-menu-test-instructions.md",
+    "Без названия.base",
+    "2_CATEGORIES/CAT-DEV/notes/pjr.DEV.accepted.INT.MD.@CAT-DEV.md",
+    "templates/electronic-project.md",
+    "docs/ribbon-menu-expansion-report.md",
+    "docs/ribbon-menu-report.md",
+    "2_CATEGORIES/CAT-DEV/notes",
+    "2_CATEGORIES/CAT-DEV",
+    "2_CATEGORIES",
+    "docs/functional-improvements-report.md",
+    "0_INBOX",
+    "templates/decision.md",
+    "templates/cq.md",
+    "templates/contact_template.md",
+    "templates/adr.md",
+    "docs/plugin-fix-report.md",
+    "docs/tasktracker.md",
+    "docs/changelog.md",
+    "docs"
+  ]
 }

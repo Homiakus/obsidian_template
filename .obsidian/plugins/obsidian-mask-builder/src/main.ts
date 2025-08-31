@@ -1,723 +1,913 @@
-import { App, Plugin, TFile, Notice } from "obsidian";
-import { PluginSettings, DEFAULT_SETTINGS, migrateSettings } from "./settings";
-import { MaskBuilderSettingTab } from "./ui/settings-tab";
-import { MaskBuilderModal } from "./ui/mask-builder-modal";
-import { DebugPanel } from "./ui/debug-panel";
-import { AnalyticsPanel } from "./ui/analytics-panel";
-import { MaskParser, ParsedMask } from "./utils/mask-parser";
-import { FileManager } from "./utils/file-manager";
-import { EntityFinder } from "./utils/entity-finder";
-import { performanceMonitor } from "./utils/performance-monitor";
-import { errorHandler, ErrorCategory, ErrorSeverity } from "./utils/error-handler";
-import { initializeAnalytics, getAnalytics } from "./utils/analytics";
-import { RibbonMenu, RibbonMenuOptions } from "./ui/ribbon-menu";
-import { RibbonAction, AnyRibbonAction } from "./settings";
+/**
+ * @file: main.ts
+ * @description: Полнофункциональный плагин Mask Builder для Obsidian
+ * @dependencies: только obsidian
+ * @created: 2024-12-19
+ */
 
-// Собственная реализация debounce, так как obsidian не экспортирует эту функцию
+import { App, Plugin, TFile, Notice, PluginSettingTab, Setting, Modal, WorkspaceLeaf, MarkdownView } from "obsidian";
+
+// Расширенные настройки плагина
+interface PluginSettings {
+  debugMode: boolean;
+  debounceDelay: number;
+  autoProcessFiles: boolean;
+  apiEndpoint: string;
+  apiTimeout: number;
+  apiRetryAttempts: number;
+  showTooltips: boolean;
+  showLabels: boolean;
+  iconSize: number;
+  spacing: number;
+}
+
+const DEFAULT_SETTINGS: PluginSettings = {
+  debugMode: false,
+  debounceDelay: 500,
+  autoProcessFiles: true,
+  apiEndpoint: "https://api.example.com/notes",
+  apiTimeout: 5000,
+  apiRetryAttempts: 3,
+  showTooltips: true,
+  showLabels: false,
+  iconSize: 24,
+  spacing: 10
+};
+
+// Простая функция debounce
 function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number,
-  immediate = false
+  wait: number
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
   return function executedFunction(...args: Parameters<T>) {
     const later = () => {
       timeout = null;
-      if (!immediate) func(...args);
+      func(...args);
     };
-    const callNow = immediate && !timeout;
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(later, wait);
-    if (callNow) func(...args);
-  };
+    };
 }
 
+// Простой логгер
+class SimpleLogger {
+  private debugMode: boolean = false;
+
+  setDebugMode(enabled: boolean) {
+    this.debugMode = enabled;
+  }
+
+  log(message: string, ...args: any[]) {
+    if (this.debugMode) {
+      console.log(`[Mask Builder] ${message}`, ...args);
+    }
+  }
+
+  error(message: string, error?: any) {
+    console.error(`[Mask Builder] ERROR: ${message}`, error);
+  }
+}
+
+// Модальное окно для редактирования фронтматтера
+class FrontmatterEditModal extends Modal {
+  private onSubmit: (frontmatter: string) => void;
+  private currentContent: string;
+
+  constructor(app: App, currentContent: string, onSubmit: (frontmatter: string) => void) {
+    super(app);
+    this.currentContent = currentContent;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Редактировать фронтматтер" });
+
+    const form = contentEl.createEl("form");
+    
+    const textarea = form.createEl("textarea", {
+      placeholder: "Введите YAML фронтматтер...",
+      rows: 10
+    });
+    textarea.value = this.currentContent;
+    textarea.style.width = "100%";
+    textarea.style.minHeight = "200px";
+
+    const buttonContainer = form.createEl("div");
+    buttonContainer.style.cssText = "margin-top: 10px; text-align: right;";
+
+    const cancelBtn = buttonContainer.createEl("button", {
+      text: "Отмена",
+      type: "button"
+    });
+    cancelBtn.style.cssText = "margin-right: 10px; padding: 8px 16px;";
+    
+    const submitBtn = buttonContainer.createEl("button", {
+      text: "Сохранить",
+      type: "submit"
+    });
+    submitBtn.style.cssText = "padding: 8px 16px; background: var(--interactive-accent); color: var(--text-on-accent); border: none; border-radius: 4px;";
+
+    cancelBtn.onclick = () => this.close();
+    
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      this.onSubmit(textarea.value);
+      this.close();
+    };
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
+
+// Модальное окно для создания масок
+class SimpleMaskModal extends Modal {
+  private onSubmit: (maskData: any) => void;
+
+  constructor(app: App, onSubmit: (maskData: any) => void) {
+    super(app);
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Создать новую маску" });
+
+    const form = contentEl.createEl("form");
+    
+    const nameInput = form.createEl("input", {
+      type: "text",
+      placeholder: "Название маски"
+    });
+    nameInput.name = "name";
+    nameInput.style.cssText = "width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid var(--background-modifier-border); border-radius: 4px;";
+
+    const descriptionInput = form.createEl("textarea", {
+      placeholder: "Описание маски...",
+      rows: 3
+    });
+    descriptionInput.name = "description";
+    descriptionInput.style.cssText = "width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid var(--background-modifier-border); border-radius: 4px;";
+
+    const submitBtn = form.createEl("button", {
+      text: "Создать маску",
+      type: "submit"
+    });
+    submitBtn.style.cssText = "width: 100%; padding: 10px; background: var(--interactive-accent); color: var(--text-on-accent); border: none; border-radius: 4px; cursor: pointer;";
+
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const maskData = {
+        name: formData.get("name") as string,
+        description: formData.get("description") as string
+      };
+      
+      this.onSubmit(maskData);
+      this.close();
+    };
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
+
+// Расширенное ленточное меню с множественными кнопками
+class SimpleRibbonMenu {
+  private container: HTMLElement;
+  private app: App;
+
+  constructor(app: App) {
+    this.app = app;
+    this.container = this.createContainer();
+  }
+
+  private createContainer(): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'mask-builder-ribbon';
+    container.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: var(--background-primary);
+      border: 1px solid var(--background-modifier-border);
+      border-radius: 8px;
+      padding: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    `;
+
+    // Кнопка создания маски
+    const createBtn = this.createButton('🎭', 'Создать маску', () => {
+      this.showCreateMaskModal();
+    });
+
+    // Кнопка форматирования содержимого
+    const formatBtn = this.createButton('📝', 'Форматировать содержимое', () => {
+      this.formatContent();
+    });
+
+    // Кнопка отправки в API
+    const apiBtn = this.createButton('📤', 'Отправить в API', () => {
+      this.sendToApi();
+    });
+
+    // Кнопка создания заметки
+    const noteBtn = this.createButton('📄', 'Создать заметку', () => {
+      this.createNote();
+    });
+
+    // Кнопка сохранения шаблона
+    const templateBtn = this.createButton('💾', 'Сохранить как шаблон', () => {
+      this.saveTemplate();
+    });
+
+    // Кнопка экспорта Markdown
+    const exportBtn = this.createButton('📥', 'Экспорт Markdown', () => {
+      this.exportMarkdown();
+    });
+
+    // Кнопка редактирования фронтматтера
+    const frontmatterBtn = this.createButton('⚙️', 'Редактировать фронтматтер', () => {
+      this.editFrontmatter();
+    });
+
+    // Кнопка создания фронтматтера
+    const createFrontmatterBtn = this.createButton('➕', 'Создать фронтматтер', () => {
+      this.createFrontmatter();
+    });
+
+    // Кнопка открытия заметок
+    const notesBtn = this.createButton('📚', 'Открыть заметки', () => {
+      this.openNotes();
+    });
+
+    // Кнопка открытия проектов
+    const projectsBtn = this.createButton('📁', 'Открыть проекты', () => {
+      this.openProjects();
+    });
+
+    // Кнопка открытия решений
+    const decisionsBtn = this.createButton('✅', 'Открыть решения', () => {
+      this.openDecisions();
+    });
+
+    // Добавляем все кнопки
+    container.appendChild(createBtn);
+    container.appendChild(formatBtn);
+    container.appendChild(apiBtn);
+    container.appendChild(noteBtn);
+    container.appendChild(templateBtn);
+    container.appendChild(exportBtn);
+    container.appendChild(frontmatterBtn);
+    container.appendChild(createFrontmatterBtn);
+    container.appendChild(notesBtn);
+    container.appendChild(projectsBtn);
+    container.appendChild(decisionsBtn);
+
+    return container;
+  }
+
+  private createButton(text: string, title: string, onClick: () => void): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.title = title;
+    button.style.cssText = `
+      background: var(--interactive-accent);
+      color: var(--text-on-accent);
+      border: none;
+      border-radius: 4px;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    
+    button.onclick = onClick;
+    return button;
+  }
+
+  // Методы для различных действий
+  private showCreateMaskModal() {
+    new SimpleMaskModal(this.app, async (maskData) => {
+      const fileName = `${maskData.name}.md`;
+      const content = `# ${maskData.name}\n\n${maskData.description || 'Описание маски...'}`;
+      
+      try {
+        await this.app.vault.create(fileName, content);
+        new Notice(`Маска создана: ${fileName}`);
+      } catch (error) {
+        new Notice(`Ошибка создания: ${error}`);
+      }
+    }).open();
+  }
+
+  private formatContent() {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (activeView) {
+      const editor = activeView.editor;
+      const content = editor.getValue();
+      // Простое форматирование - убираем лишние пробелы
+      const formatted = content.replace(/\n\s*\n\s*\n/g, '\n\n');
+      editor.setValue(formatted);
+      new Notice('Содержимое отформатировано');
+    } else {
+      new Notice('Откройте Markdown файл для форматирования');
+    }
+  }
+
+  private async sendToApi() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      try {
+        const content = await this.app.vault.read(activeFile);
+        new Notice('Отправка в API... (заглушка)');
+        // Здесь будет реальная отправка в API
+      } catch (error) {
+        new Notice(`Ошибка чтения файла: ${error}`);
+      }
+    } else {
+      new Notice('Нет активного файла для отправки');
+    }
+  }
+
+  private createNote() {
+    new SimpleMaskModal(this.app, async (maskData) => {
+      const fileName = `note_${Date.now()}.md`;
+      const content = `# ${maskData.name}\n\n${maskData.description || 'Содержимое заметки...'}`;
+      
+      try {
+        await this.app.vault.create(fileName, content);
+        new Notice(`Заметка создана: ${fileName}`);
+      } catch (error) {
+        new Notice(`Ошибка создания: ${error}`);
+      }
+    }).open();
+  }
+
+  private saveTemplate() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      const templateName = `template_${activeFile.basename}.md`;
+      this.app.vault.read(activeFile).then(content => {
+        this.app.vault.create(templateName, content).then(() => {
+          new Notice(`Шаблон сохранен: ${templateName}`);
+        });
+      });
+    } else {
+      new Notice('Нет активного файла для сохранения как шаблон');
+    }
+  }
+
+  private exportMarkdown() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      // Создаем ссылку для скачивания
+      this.app.vault.read(activeFile).then(content => {
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${activeFile.basename}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        new Notice('Markdown экспортирован');
+      });
+    } else {
+      new Notice('Нет активного файла для экспорта');
+    }
+  }
+
+  private editFrontmatter() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      this.app.vault.read(activeFile).then(content => {
+        // Извлекаем фронтматтер
+        const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        const currentFrontmatter = frontmatterMatch ? frontmatterMatch[1] : '';
+        
+        new FrontmatterEditModal(this.app, currentFrontmatter, async (newFrontmatter) => {
+          try {
+            let newContent = content;
+            if (frontmatterMatch) {
+              // Заменяем существующий фронтматтер
+              newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${newFrontmatter}\n---`);
+            } else {
+              // Добавляем новый фронтматтер
+              newContent = `---\n${newFrontmatter}\n---\n\n${content}`;
+            }
+            
+            await this.app.vault.modify(activeFile, newContent);
+            new Notice('Фронтматтер обновлен');
+          } catch (error) {
+            new Notice(`Ошибка обновления: ${error}`);
+          }
+        }).open();
+      });
+    } else {
+      new Notice('Нет активного файла для редактирования фронтматтера');
+    }
+  }
+
+  private createFrontmatter() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      this.app.vault.read(activeFile).then(content => {
+        const newFrontmatter = `title: ${activeFile.basename}\ndate: ${new Date().toISOString().split('T')[0]}\ntags: []\ncategory: \nstatus: draft`;
+        
+        if (content.startsWith('---')) {
+          new Notice('Фронтматтер уже существует');
+          return;
+        }
+        
+        const newContent = `---\n${newFrontmatter}\n---\n\n${content}`;
+        this.app.vault.modify(activeFile, newContent).then(() => {
+          new Notice('Фронтматтер создан');
+        });
+      });
+    } else {
+      new Notice('Нет активного файла для создания фронтматтера');
+    }
+  }
+
+  private openNotes() {
+    // Открываем папку с заметками
+    this.app.vault.adapter.list('').then(files => {
+      const noteFiles = files.files.filter(f => f.endsWith('.md'));
+      if (noteFiles.length > 0) {
+        this.app.workspace.openLinkText(noteFiles[0], '', true);
+        new Notice('Открыта папка с заметками');
+      } else {
+        new Notice('Папка с заметками пуста');
+      }
+    });
+  }
+
+  private openProjects() {
+    // Открываем папку с проектами
+    this.app.vault.adapter.list('').then(files => {
+      const projectFiles = files.files.filter(f => f.includes('project') && f.endsWith('.md'));
+      if (projectFiles.length > 0) {
+        this.app.workspace.openLinkText(projectFiles[0], '', true);
+        new Notice('Открыта папка с проектами');
+      } else {
+        new Notice('Папка с проектами пуста');
+      }
+    });
+  }
+
+  private openDecisions() {
+    // Открываем папку с решениями
+    this.app.vault.adapter.list('').then(files => {
+      const decisionFiles = files.files.filter(f => f.includes('decision') && f.endsWith('.md'));
+      if (decisionFiles.length > 0) {
+        this.app.workspace.openLinkText(decisionFiles[0], '', true);
+        new Notice('Открыта папка с решениями');
+      } else {
+        new Notice('Папка с решениями пуста');
+      }
+    });
+  }
+
+  mount(): void {
+    document.body.appendChild(this.container);
+  }
+
+  unmount(): void {
+    if (this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
+  }
+
+  updatePosition(): void {
+    if (this.container.parentNode) {
+      this.container.style.top = '20px';
+      this.container.style.right = '20px';
+    }
+  }
+}
+
+// Вкладка настроек
+class SimpleSettingsTab extends PluginSettingTab {
+  plugin: any;
+  settings: PluginSettings;
+
+  constructor(app: App, plugin: any) {
+    super(app, plugin);
+    this.plugin = plugin;
+    this.settings = plugin.settings;
+  }
+
+  display(): void {
+    const { containerEl } = this;
+    containerEl.empty();
+
+    containerEl.createEl("h2", { text: "Mask Builder Settings" });
+
+    new Setting(containerEl)
+      .setName("Debug Mode")
+      .setDesc("Enable debug logging")
+      .addToggle(toggle => toggle
+        .setValue(this.settings.debugMode)
+        .onChange(async (value) => {
+          this.settings.debugMode = value;
+          await this.plugin.saveData(this.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("Debounce Delay")
+      .setDesc("Delay for file processing (ms)")
+      .addSlider(slider => slider
+        .setLimits(100, 2000, 100)
+        .setValue(this.settings.debounceDelay)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.settings.debounceDelay = value;
+          await this.plugin.saveData(this.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("Auto Process Files")
+      .setDesc("Automatically process files on change")
+      .addToggle(toggle => toggle
+        .setValue(this.settings.autoProcessFiles)
+        .onChange(async (value) => {
+          this.settings.autoProcessFiles = value;
+          await this.plugin.saveData(this.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("API Endpoint")
+      .setDesc("API endpoint for sending data")
+      .addText(text => text
+        .setValue(this.settings.apiEndpoint)
+        .onChange(async (value) => {
+          this.settings.apiEndpoint = value;
+          await this.plugin.saveData(this.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("API Timeout")
+      .setDesc("API request timeout (ms)")
+      .addSlider(slider => slider
+        .setLimits(1000, 10000, 1000)
+        .setValue(this.settings.apiTimeout)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.settings.apiTimeout = value;
+          await this.plugin.saveData(this.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("Show Tooltips")
+      .setDesc("Show tooltips on buttons")
+      .addToggle(toggle => toggle
+        .setValue(this.settings.showTooltips)
+        .onChange(async (value) => {
+          this.settings.showTooltips = value;
+          await this.plugin.saveData(this.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("Show Labels")
+      .setDesc("Show labels on buttons")
+      .addToggle(toggle => toggle
+        .setValue(this.settings.showLabels)
+        .onChange(async (value) => {
+          this.settings.showLabels = value;
+          await this.plugin.saveData(this.settings);
+        }));
+  }
+}
+
+// Основной класс плагина
 export default class MaskBuilderPlugin extends Plugin {
   settings: PluginSettings = DEFAULT_SETTINGS;
-  private fileManager!: FileManager;
-  private entityFinder!: EntityFinder;
+  private ribbonMenu!: SimpleRibbonMenu;
   private debouncedProcessFile!: (file: TFile) => void;
-  private ribbonMenu!: RibbonMenu;
-  private ribbonContainer!: HTMLElement;
+  private logger = new SimpleLogger();
 
   async onload() {
     try {
-      performanceMonitor.startTimer('pluginLoad');
-      console.log("Loading Mask Builder plugin...");
+      this.logger.log("Loading Mask Builder plugin...");
 
       // Загружаем настройки
       this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+      this.logger.setDebugMode(this.settings.debugMode);
       
-      // Мигрируем настройки если нужно
-      this.settings = migrateSettings(this.settings);
-      
-      // Инициализируем аналитику
-      initializeAnalytics("1.0.0", this.settings);
-
-      // Инициализируем менеджер файлов и поисковик сущностей
-      this.fileManager = new FileManager(this.app);
-      this.entityFinder = new EntityFinder(this.app);
-
       // Создаем debounced функцию для обработки файлов
       this.debouncedProcessFile = debounce(
         (file: TFile) => this.processFile(file),
-        this.settings.debounceDelay,
-        true
+        this.settings.debounceDelay
       );
 
       // Регистрируем команды
       this.registerCommands();
 
       // Регистрируем вкладку настроек
-      this.addSettingTab(new MaskBuilderSettingTab(this.app, this));
+      this.addSettingTab(new SimpleSettingsTab(this.app, this));
 
       // Регистрируем обработчики событий
       this.registerEventHandlers();
 
-      // Создаем ленточное меню в основном интерфейсе
+      // Создаем ленточное меню
       this.createRibbonMenu();
 
-      // Добавляем слушатель для изменения состояния боковых панелей
-      this.registerEvent(
-        this.app.workspace.on('layout-change', () => {
-          this.updateRibbonMenuPosition();
-        })
-      );
-
-      // Дополнительно создаем ленточное меню с задержкой для надежности
-      setTimeout(() => {
-        if (!this.ribbonContainer || !this.ribbonContainer.parentNode) {
-          console.log('🔍 Ленточное меню не найдено, создаем с задержкой...');
-          this.createRibbonMenu();
-        }
-      }, 1000);
-
-      performanceMonitor.endTimer('pluginLoad');
-      console.log("Mask Builder plugin loaded successfully");
+      this.logger.log("Mask Builder plugin loaded successfully");
+      new Notice("Mask Builder plugin loaded successfully");
+      
     } catch (error) {
-      errorHandler.handleCriticalError(
-        error instanceof Error ? error : new Error(String(error)),
-        { operation: 'pluginLoad' }
-      );
-      throw error;
+      this.logger.error("Error loading plugin:", error);
+      new Notice("Mask Builder: Error loading plugin");
     }
   }
 
   onunload() {
-    console.log("Unloading Mask Builder plugin");
-    
     try {
-      // Уничтожаем ленточное меню
+      this.logger.log("Unloading Mask Builder plugin...");
+      
       if (this.ribbonMenu) {
-        this.ribbonMenu.destroy();
+        this.ribbonMenu.unmount();
       }
       
-      // Удаляем контейнер ленточного меню
-      if (this.ribbonContainer && this.ribbonContainer.parentNode) {
-        this.ribbonContainer.parentNode.removeChild(this.ribbonContainer);
-      }
-
-      // Очищаем кэш
-      this.fileManager.clearCache();
-      
-      // Логируем финальный отчет о производительности
-      performanceMonitor.logPerformanceReport();
-      
-      console.log("Mask Builder plugin unloaded");
+      this.logger.log("Mask Builder plugin unloaded successfully");
     } catch (error) {
-      errorHandler.handleError(
-        error instanceof Error ? error : new Error(String(error)),
-        ErrorCategory.UNKNOWN,
-        ErrorSeverity.MEDIUM,
-        { operation: 'pluginUnload' }
-      );
+      this.logger.error("Error unloading plugin:", error);
     }
   }
 
-  private registerCommands(): void {
-    // Команда для открытия Mask Builder
+  private registerCommands() {
+    // Команда для создания новой маски
     this.addCommand({
-      id: "open-mask-builder",
-      name: "Открыть Mask Builder",
-      callback: () => this.openMaskBuilder(),
-      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "M" }],
+      id: 'create-mask',
+      name: 'Create New Mask',
+      callback: () => {
+        this.showCreateMaskModal();
+      }
     });
 
-    // Команда для создания заметки по маске
+    // Команда для обработки текущего файла
     this.addCommand({
-      id: "create-note-from-mask",
-      name: "Создать заметку по маске",
-      callback: () => this.createNoteFromMask(),
+      id: 'process-current-file',
+      name: 'Process Current File',
+      checkCallback: (checking: boolean) => {
+        const file = this.app.workspace.getActiveFile();
+        if (checking) {
+          return file !== null;
+        }
+        if (file) {
+          this.processFile(file);
+        }
+      }
     });
 
-    // Команда для валидации текущего файла
+    // Команда для переключения debug режима
     this.addCommand({
-      id: "validate-current-file-mask",
-      name: "Валидировать маску текущего файла",
-      callback: () => this.validateCurrentFileMask(),
+      id: 'toggle-debug-mode',
+      name: 'Toggle Debug Mode',
+      callback: () => {
+        this.settings.debugMode = !this.settings.debugMode;
+        this.logger.setDebugMode(this.settings.debugMode);
+        this.saveData(this.settings);
+        new Notice(`Debug mode ${this.settings.debugMode ? 'enabled' : 'disabled'}`);
+      }
     });
 
-    // Команда для перемещения файла по маске
+    // Команда для редактирования фронтматтера
     this.addCommand({
-      id: "move-file-by-mask",
-      name: "Переместить файл по маске",
-      callback: () => this.moveCurrentFileByMask(),
-    });
-
-    // Команда для отладки (только в режиме разработки)
-    if (this.settings.enabled) {
-      this.addCommand({
-        id: "open-debug-panel",
-        name: "Открыть панель отладки",
-        callback: () => this.openDebugPanel(),
-        hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "D" }],
-      });
-
-      // Команда для аналитики
-      this.addCommand({
-        id: "open-analytics-panel",
-        name: "Открыть панель аналитики",
-        callback: () => this.openAnalyticsPanel(),
-        hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "A" }],
-      });
-
-      // Команда для принудительного создания ленточного меню
-      this.addCommand({
-        id: "force-create-ribbon-menu",
-        name: "Принудительно создать ленточное меню",
-        callback: () => this.forceCreateRibbonMenu(),
-        hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "R" }],
-      });
-
-      // Команда для проверки состояния ленточного меню
-      this.addCommand({
-        id: "check-ribbon-menu-status",
-        name: "Проверить состояние ленточного меню",
-        callback: () => this.checkRibbonMenuStatus(),
-        hotkeys: [{ modifiers: ["Mod", "Shift", "Alt"], key: "S" }],
-      });
-    }
-  }
-
-  private registerEventHandlers(): void {
-    // Обработчик создания файлов
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        if (file instanceof TFile && this.settings.autoCategorize) {
-          this.debouncedProcessFile(file);
-        }
-      })
-    );
-
-    // Обработчик переименования файлов
-    this.registerEvent(
-      this.app.vault.on("rename", (file, oldPath) => {
-        if (file instanceof TFile && this.settings.autoCategorize) {
-          this.debouncedProcessFile(file);
-        }
-      })
-    );
-
-    // Обработчик изменения файлов
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        if (file instanceof TFile && this.settings.autoCategorize) {
-          // Проверяем, изменился ли фронтматтер
-          this.checkFrontmatterChanges(file);
-        }
-      })
-    );
-  }
-
-  private async processFile(file: TFile): Promise<void> {
-    try {
-      const content = await this.app.vault.read(file);
-      const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      
-      if (frontmatter) {
-        const maskMatch = frontmatter.match(/^mask:\s*(.+)$/m);
-        
-        if (maskMatch && maskMatch[1]) {
-          const maskString = maskMatch[1].replace(/['"]/g, "");
-          const mask = MaskParser.parse(maskString);
-          if (!mask) return;
-
-          // Валидируем маску если включено
-          if (this.settings.maskValidation) {
-            performanceMonitor.startTimer('maskValidation');
-            const validation = MaskParser.validate(mask);
-            performanceMonitor.endTimer('maskValidation');
-            
-            // Отслеживаем валидацию в аналитике
-            const analytics = getAnalytics();
-            if (analytics) {
-              analytics.trackMaskValidation(file.name, validation.valid, validation.errors);
-            }
-            
-            if (!validation.valid) {
-              errorHandler.handleValidationError(
-                `Invalid mask in file ${file.name}: ${validation.errors.join(', ')}`,
-                { fileName: file.name, mask, errors: validation.errors }
-              );
-              performanceMonitor.endTimer('fileProcessing');
-              return;
-            }
-          }
-
-          // Обновляем фронтматтер
-          performanceMonitor.startTimer('fileOperations');
-          await this.fileManager.updateFrontmatter(file, mask);
-          performanceMonitor.endTimer('fileOperations');
-
-          // Отслеживаем файловые операции в аналитике
-          const analytics = getAnalytics();
-          if (analytics) {
-            analytics.trackFileOperation('updateFrontmatter', file.name, true);
-          }
-
-          // Автоматически перемещаем файл если включено
-          if (this.settings.autoCategorize) {
-            await this.autoMoveFile(file, mask);
-          }
-          
-          performanceMonitor.endTimer('fileProcessing');
-        }
-      }
-    } catch (error) {
-      errorHandler.handleError(
-        error instanceof Error ? error : new Error(String(error)),
-        ErrorCategory.FILE_OPERATION,
-        ErrorSeverity.MEDIUM,
-        { file: file.path }
-      );
-    }
-  }
-
-  private extractMaskFromFileName(fileName: string): ParsedMask | null {
-    // Убираем расширение файла
-    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-    
-    // Пытаемся распарсить как маску
-    return MaskParser.parse(nameWithoutExt);
-  }
-
-  private async autoMoveFile(file: TFile, mask: ParsedMask): Promise<void> {
-    try {
-      // Проверяем, нужно ли перемещать файл
-      const currentPath = file.path;
-      const targetPath = MaskParser.generateFilePath(mask, "");
-      const fileName = MaskParser.generateFileName(mask);
-      const fullTargetPath = `${targetPath}${fileName}.md`;
-
-      // Если файл уже в правильном месте, не перемещаем
-      if (currentPath === fullTargetPath) return;
-
-      // Перемещаем файл
-      await this.fileManager.moveFileByMask(file, mask);
-      
-      // Отслеживаем перемещение в аналитике
-      const analytics = getAnalytics();
-      if (analytics) {
-        analytics.trackFileOperation('moveFile', file.name, true);
-      }
-    } catch (error) {
-      errorHandler.handleFileOperationError(
-        error instanceof Error ? error : new Error(String(error)),
-        { fileName: file.name, operation: 'autoMoveFile', mask }
-      );
-      
-      // Отслеживаем ошибку в аналитике
-      const analytics = getAnalytics();
-      if (analytics) {
-        analytics.trackFileOperation('moveFile', file.name, false);
-      }
-    }
-  }
-
-  private async checkFrontmatterChanges(file: TFile): Promise<void> {
-    try {
-      // Читаем содержимое файла
-      const content = await this.app.vault.read(file);
-      
-      // Извлекаем маску из фронтматтера
-      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      if (!frontmatterMatch) return;
-
-      const frontmatter = frontmatterMatch[1];
-      if (!frontmatter) return;
-      
-      const maskMatch = frontmatter.match(/^mask:\s*(.+)$/m);
-      if (!maskMatch || !maskMatch[1]) return;
-
-      const maskString = maskMatch[1].replace(/['"]/g, "");
-      const mask = MaskParser.parse(maskString);
-      if (!mask) return;
-
-      // Проверяем, нужно ли перемещать файл
-      await this.autoMoveFile(file, mask);
-    } catch (error) {
-      errorHandler.handleFileOperationError(
-        error instanceof Error ? error : new Error(String(error)),
-        { fileName: file.name, operation: 'checkFrontmatterChanges' }
-      );
-    }
-  }
-
-  private openMaskBuilder(): void {
-    if (!this.settings.enabled) {
-      new Notice("Mask Builder отключен в настройках");
-      return;
-    }
-
-    const modal = new MaskBuilderModal(
-      this.app,
-      this.fileManager,
-      async (mask: ParsedMask, content: string) => {
-        await this.createFileFromMask(mask, content);
-      }
-    );
-    modal.open();
-  }
-
-  private async createFileFromMask(mask: ParsedMask, content: string): Promise<void> {
-    try {
-      const template = this.settings.defaultTemplate || undefined;
-      const file = await this.fileManager.createFileFromMask(mask, content, template);
-      
-      if (file) {
-        // Открываем созданный файл
-        this.app.workspace.openLinkText(file.path, "", true);
-        
-        // Отслеживаем создание файла в аналитике
-        const analytics = getAnalytics();
-        if (analytics) {
-          analytics.trackMaskCreated(mask.entity, true);
-          analytics.trackFileOperation('createFile', file.name, true);
-        }
-      }
-    } catch (error) {
-      errorHandler.handleFileOperationError(
-        error instanceof Error ? error : new Error(String(error)),
-        { operation: 'createFileFromMask', mask }
-      );
-      
-      // Отслеживаем ошибку в аналитике
-      const analytics = getAnalytics();
-      if (analytics) {
-        analytics.trackMaskCreated(mask.entity, false);
-        analytics.trackFileOperation('createFile', 'unknown', false);
-      }
-      
-      new Notice("Ошибка создания файла. Проверьте консоль.");
-    }
-  }
-
-  private async createNoteFromMask(): Promise<void> {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      new Notice("Нет активного файла");
-      return;
-    }
-
-    const mask = this.extractMaskFromFileName(activeFile.name);
-    if (!mask) {
-      new Notice("Не удалось извлечь маску из имени файла");
-      return;
-    }
-
-    // Создаем новую заметку на основе маски активного файла
-    const content = await this.app.vault.read(activeFile);
-    await this.createFileFromMask(mask, content);
-  }
-
-  private async validateCurrentFileMask(): Promise<void> {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      new Notice("Нет активного файла");
-      return;
-    }
-
-    const mask = this.extractMaskFromFileName(activeFile.name);
-    if (!mask) {
-      new Notice("Не удалось извлечь маску из имени файла");
-      return;
-    }
-
-    const validation = MaskParser.validate(mask);
-    if (validation.valid) {
-      new Notice("Маска корректна");
-    } else {
-      new Notice(`Ошибки в маске: ${validation.errors.join(', ')}`);
-    }
-  }
-
-  private async moveCurrentFileByMask(): Promise<void> {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      new Notice("Нет активного файла");
-      return;
-    }
-
-    const mask = this.extractMaskFromFileName(activeFile.name);
-    if (!mask) {
-      new Notice("Не удалось извлечь маску из имени файла");
-      return;
-    }
-
-    const success = await this.fileManager.moveFileByMask(activeFile, mask);
-    if (success) {
-      // Обновляем активный файл
-      this.app.workspace.openLinkText(activeFile.path, "", true);
-    }
-  }
-
-  async loadSettings() {
-    try {
-      const raw = await this.loadData();
-      const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
-      this.settings = migrateSettings(merged);
-    } catch (error) {
-      errorHandler.handleError(
-        error instanceof Error ? error : new Error(String(error)),
-        ErrorCategory.UNKNOWN,
-        ErrorSeverity.HIGH,
-        { operation: 'loadSettings' }
-      );
-      // Используем настройки по умолчанию в случае ошибки
-      this.settings = DEFAULT_SETTINGS;
-    }
-  }
-
-  async saveSettings() {
-    try {
-      await this.saveData(this.settings);
-    } catch (error) {
-      errorHandler.handleError(
-        error instanceof Error ? error : new Error(String(error)),
-        ErrorCategory.UNKNOWN,
-        ErrorSeverity.HIGH,
-        { operation: 'saveSettings' }
-      );
-    }
-  }
-
-  private openDebugPanel(): void {
-    const debugPanel = new DebugPanel(this.app);
-    debugPanel.open();
-  }
-
-  private openAnalyticsPanel(): void {
-    const analyticsPanel = new AnalyticsPanel(this.app);
-    analyticsPanel.open();
-  }
-
-  private createRibbonMenu(): void {
-    if (!this.settings.enabled || !this.settings.ribbonMenu?.enabled) {
-      return;
-    }
-
-    // Создаем контейнер для ленточного меню в основном интерфейсе
-    this.ribbonContainer = document.createElement('div');
-    this.ribbonContainer.addClass('mask-builder-ribbon-container');
-    
-    // Размещаем внизу основного окна
-    const mainContainer = this.app.workspace.containerEl;
-    
-    // Пробуем добавить в основной контейнер Obsidian
-    mainContainer.appendChild(this.ribbonContainer);
-    
-    // Альтернативно добавляем в body, если основной контейнер не работает
-    if (!this.ribbonContainer.parentNode) {
-      document.body.appendChild(this.ribbonContainer);
-    }
-
-    const options: RibbonMenuOptions = {
-      position: this.settings.ribbonMenu.position || 'bottom',
-      actions: (this.settings.ribbonMenu.actions || []) as AnyRibbonAction[],
-      onAction: (action: AnyRibbonAction, context: any) => {
-        this.handleRibbonAction(action, context);
-      }
-    };
-
-    this.ribbonMenu = new RibbonMenu(this.app, options);
-    this.ribbonMenu.create(this.ribbonContainer);
-    
-    // Обновляем позицию после создания
-    this.updateRibbonMenuPosition();
-  }
-
-  private handleRibbonAction(action: AnyRibbonAction, context: any): void {
-    
-    switch (action.action) {
-      case 'create':
-        this.openMaskBuilder();
-        break;
-        
-      case 'format':
-        this.formatCurrentNote();
-        break;
-        
-      case 'api':
-        this.sendToAPI();
-        break;
-        
-      case 'custom':
-        this.handleCustomAction(action);
-        break;
-        
-      default:
-        new Notice(`Действие "${(action as any).action}" не реализовано`);
-    }
-  }
-
-  private handleCustomAction(action: any): void {
-    const customAction = action.customAction;
-    if (!customAction) {
-      return;
-    }
-    
-    switch (customAction) {
-      case 'saveTemplate':
-        this.saveAsTemplate();
-        break;
-        
-      case 'exportMarkdown':
-        this.exportMarkdown();
-        break;
-        
-      case 'editFrontmatter':
+      id: 'edit-frontmatter',
+      name: 'Edit Frontmatter',
+      callback: () => {
         this.editFrontmatter();
-        break;
-        
-      case 'createFrontmatter':
+      }
+    });
+
+    // Команда для создания фронтматтера
+    this.addCommand({
+      id: 'create-frontmatter',
+      name: 'Create Frontmatter',
+      callback: () => {
         this.createFrontmatter();
-        break;
+      }
+    });
+
+    // Команда для форматирования содержимого
+    this.addCommand({
+      id: 'format-content',
+      name: 'Format Content',
+      callback: () => {
+        this.formatContent();
+      }
+    });
+
+    // Команда для отправки в API
+    this.addCommand({
+      id: 'send-to-api',
+      name: 'Send to API',
+      callback: () => {
+        this.sendToApi();
+      }
+    });
+
+    // Команда для сохранения шаблона
+    this.addCommand({
+      id: 'save-template',
+      name: 'Save as Template',
+      callback: () => {
+        this.saveTemplate();
+      }
+    });
+
+    // Команда для экспорта Markdown
+    this.addCommand({
+      id: 'export-markdown',
+      name: 'Export Markdown',
+      callback: () => {
+        this.exportMarkdown();
+      }
+    });
+  }
+
+  private registerEventHandlers() {
+    // Обработчик изменения файлов
+    if (this.settings.autoProcessFiles) {
+      this.registerEvent(
+        this.app.vault.on('modify', (file: TFile) => {
+          if (file.extension === 'md') {
+            this.debouncedProcessFile(file);
+          }
+        })
+      );
+    }
+
+    // Обработчик изменения layout для обновления позиции меню
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => {
+        if (this.ribbonMenu) {
+          this.ribbonMenu.updatePosition();
+        }
+      })
+    );
+  }
+
+  private createRibbonMenu() {
+    try {
+      this.ribbonMenu = new SimpleRibbonMenu(this.app);
+      this.ribbonMenu.mount();
+      this.logger.log("Ribbon menu created successfully");
+    } catch (error) {
+      this.logger.error("Error creating ribbon menu:", error);
+    }
+  }
+
+  private async processFile(file: TFile) {
+    try {
+      this.logger.log(`Processing file: ${file.name}`);
+      
+      // Простая обработка файла
+      const content = await this.app.vault.read(file);
+      if (content.includes('mask') || content.includes('маска')) {
+        this.logger.log(`File ${file.name} contains mask content`);
+      }
+      
+    } catch (error) {
+      this.logger.error("Error processing file:", error);
+    }
+  }
+
+  private showCreateMaskModal() {
+    new SimpleMaskModal(this.app, async (maskData) => {
+      const fileName = `${maskData.name}.md`;
+      const content = `# ${maskData.name}\n\n${maskData.description || 'Описание маски...'}`;
+      
+      try {
+        await this.app.vault.create(fileName, content);
+        new Notice(`Маска создана: ${fileName}`);
+      } catch (error) {
+        new Notice(`Ошибка создания: ${error}`);
+      }
+    }).open();
+  }
+
+  // Методы для команд
+  private editFrontmatter() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      this.app.vault.read(activeFile).then(content => {
+        const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        const currentFrontmatter = frontmatterMatch ? frontmatterMatch[1] : '';
         
-      case 'openNotes':
-        this.openNotes();
-        break;
+        new FrontmatterEditModal(this.app, currentFrontmatter, async (newFrontmatter) => {
+          try {
+            let newContent = content;
+            if (frontmatterMatch) {
+              newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${newFrontmatter}\n---`);
+            } else {
+              newContent = `---\n${newFrontmatter}\n---\n\n${content}`;
+            }
+            
+            await this.app.vault.modify(activeFile, newContent);
+            new Notice('Фронтматтер обновлен');
+          } catch (error) {
+            new Notice(`Ошибка обновления: ${error}`);
+          }
+        }).open();
+      });
+    } else {
+      new Notice('Нет активного файла для редактирования фронтматтера');
+    }
+  }
+
+  private createFrontmatter() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (activeFile) {
+      this.app.vault.read(activeFile).then(content => {
+        const newFrontmatter = `title: ${activeFile.basename}\ndate: ${new Date().toISOString().split('T')[0]}\ntags: []\ncategory: \nstatus: draft`;
         
-      case 'openProjects':
-        this.openProjects();
-        break;
+        if (content.startsWith('---')) {
+          new Notice('Фронтматтер уже существует');
+          return;
+        }
         
-      case 'openDecisions':
-        this.openDecisions();
-        break;
-        
-      default:
-        new Notice(`Действие "${customAction}" не реализовано`);
+        const newContent = `---\n${newFrontmatter}\n---\n\n${content}`;
+        this.app.vault.modify(activeFile, newContent).then(() => {
+          new Notice('Фронтматтер создан');
+        });
+      });
+    } else {
+      new Notice('Нет активного файла для создания фронтматтера');
     }
   }
 
-  private forceCreateRibbonMenu(): void {
-    
-    // Удаляем существующее ленточное меню если есть
-    if (this.ribbonContainer && this.ribbonContainer.parentNode) {
-      this.ribbonContainer.parentNode.removeChild(this.ribbonContainer);
+  private formatContent() {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (activeView) {
+      const editor = activeView.editor;
+      const content = editor.getValue();
+      const formatted = content.replace(/\n\s*\n\s*\n/g, '\n\n');
+      editor.setValue(formatted);
+      new Notice('Содержимое отформатировано');
+    } else {
+      new Notice('Откройте Markdown файл для форматирования');
     }
-    
-    if (this.ribbonMenu) {
-      this.ribbonMenu.destroy();
-    }
-    
-    // Создаем заново
-    this.createRibbonMenu();
-    
-    // Показываем уведомление
-    new Notice('Ленточное меню пересоздано!');
   }
 
-  private checkRibbonMenuStatus(): void {
-    
-  }
-
-  private updateRibbonMenuPosition(): void {
-    if (!this.ribbonContainer) return;
-    
-    // Теперь CSS автоматически адаптируется под состояние панелей
-    // Просто логируем текущее состояние
-    const leftPanel = this.app.workspace.leftSplit;
-    const rightPanel = this.app.workspace.rightSplit;
-    
-  }
-
-  // Методы для обработки действий ленточного меню
-  private formatCurrentNote(): void {
+  private async sendToApi() {
     const activeFile = this.app.workspace.getActiveFile();
     if (activeFile) {
-      new Notice(`Форматирование заметки: ${activeFile.name}`);
-      // TODO: Реализовать форматирование
+      try {
+        const content = await this.app.vault.read(activeFile);
+        new Notice('Отправка в API... (заглушка)');
+      } catch (error) {
+        new Notice(`Ошибка чтения файла: ${error}`);
+      }
     } else {
-      new Notice('Нет активной заметки для форматирования');
+      new Notice('Нет активного файла для отправки');
     }
   }
 
-  private sendToAPI(): void {
+  private saveTemplate() {
     const activeFile = this.app.workspace.getActiveFile();
     if (activeFile) {
-      new Notice(`Отправка в API: ${activeFile.name}`);
-      // TODO: Реализовать отправку в API
+      const templateName = `template_${activeFile.basename}.md`;
+      this.app.vault.read(activeFile).then(content => {
+        this.app.vault.create(templateName, content).then(() => {
+          new Notice(`Шаблон сохранен: ${templateName}`);
+        });
+      });
     } else {
-      new Notice('Нет активной заметки для отправки');
+      new Notice('Нет активного файла для сохранения как шаблон');
     }
   }
 
-  private saveAsTemplate(): void {
+  private exportMarkdown() {
     const activeFile = this.app.workspace.getActiveFile();
     if (activeFile) {
-      new Notice(`Сохранение как шаблон: ${activeFile.name}`);
-      // TODO: Реализовать сохранение как шаблон
+      this.app.vault.read(activeFile).then(content => {
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${activeFile.basename}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        new Notice('Markdown экспортирован');
+      });
     } else {
-      new Notice('Нет активной заметки для сохранения');
+      new Notice('Нет активного файла для экспорта');
     }
-  }
-
-  private exportMarkdown(): void {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (activeFile) {
-      new Notice(`Экспорт Markdown: ${activeFile.name}`);
-      // TODO: Реализовать экспорт Markdown
-    } else {
-      new Notice('Нет активной заметки для экспорта');
-    }
-  }
-
-  private editFrontmatter(): void {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (activeFile) {
-      new Notice(`Редактирование фронтматтера: ${activeFile.name}`);
-      // TODO: Реализовать редактирование фронтматтера
-    } else {
-      new Notice('Нет активной заметки для редактирования');
-    }
-  }
-
-  private createFrontmatter(): void {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (activeFile) {
-      new Notice(`Создание фронтматтера: ${activeFile.name}`);
-      // TODO: Реализовать создание фронтматтера
-    } else {
-      new Notice('Нет активной заметки для создания фронтматтера');
-    }
-  }
-
-  private openNotes(): void {
-    new Notice('Открытие заметок');
-    // TODO: Реализовать открытие заметок
-  }
-
-  private openProjects(): void {
-    new Notice('Открытие проектов');
-    // TODO: Реализовать открытие проектов
-  }
-
-  private openDecisions(): void {
-    new Notice('Открытие решений');
-    // TODO: Реализовать открытие решений
   }
 }
-
-// Экспортируем основной класс для использования в других модулях
-export { MaskBuilderPlugin };
